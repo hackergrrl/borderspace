@@ -208,7 +208,7 @@ function run (res) {
 
     // move camera forward
     var delta = vec3.create()
-    var forward = vec3.fromValues(0, 0, 0.001)
+    var forward = vec3.fromValues(0, 0, keydown('<space>') ? -0.02 : -0.002)
     vec3.transformQuat(delta, forward, look)
     vec3.add(campos, campos, delta)
     mat4.fromTranslation(camera, [-campos[0], -campos[1], -campos[2]])
