@@ -139,19 +139,22 @@ var starfield = regl({
   vert: `
   precision mediump float;
   attribute vec3 position;
+  varying float vAlpha;
   uniform mat4 view, projection;
   void main() {
     gl_PointSize = 3.0;
     gl_Position = projection * view * vec4(position, 1);
+    vAlpha = 1.0 - (view * vec4(position, 1)).z * -0.5;
   }`,
 
   frag: `
   precision lowp float;
+  varying float vAlpha;
   void main() {
     if (length(gl_PointCoord.xy - 0.5) > 0.5) {
       discard;
     }
-    gl_FragColor = vec4(1, 1, 1, 0.45);
+    gl_FragColor = vec4(1, 1, 1, vAlpha);
   }`,
 
   attributes: {
