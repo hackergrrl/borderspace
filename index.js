@@ -106,7 +106,6 @@ var skybox = regl({
       quat.invert(out, look)
       var res = mat4.create()
       mat4.fromQuat(res, out)
-      mat4.translate(res, res, pos)
       return res
     },
     projection: function (info) {
@@ -118,6 +117,71 @@ var skybox = regl({
     },
     tex: regl.prop('texture')
   }
+})
+
+function rand (min, max) {
+  return Math.random() * (max - min) + min
+}
+
+function randsphere (size) {
+  return [rand(-size,size), rand(-size,size), rand(-size,size)]
+}
+
+var NUM_POINTS = 10000
+var starfield = regl({
+  vert: `
+  precision mediump float;
+  attribute vec3 position;
+  uniform mat4 view, projection;
+  void main() {
+    gl_PointSize = 3.0;
+    gl_Position = projection * view * vec4(position, 1);
+  }`,
+
+  frag: `
+  precision lowp float;
+  void main() {
+    if (length(gl_PointCoord.xy - 0.5) > 0.5) {
+      discard;
+    }
+    gl_FragColor = vec4(1, 1, 1, 0.45);
+  }`,
+
+  attributes: {
+    position: [
+      new Array(NUM_POINTS).fill(0).map((_, i) => randsphere(8))
+    ]
+  },
+
+  blend: {
+    enable: true,
+    func: {
+      src: 'src alpha',
+      dst: 'one minus src alpha'
+    }
+  },
+
+  uniforms: {
+    view: function (info) {
+      var out = quat.create()
+      quat.invert(out, look)
+      var res = mat4.create()
+      mat4.fromQuat(res, out)
+      mat4.translate(res, res, pos)
+      return res
+    },
+    projection: function (info) {
+      return mat4.perspective([],
+                              Math.PI / 4,
+                              info.viewportWidth / info.viewportHeight,
+                              0.05,
+                              30)
+    },
+  },
+
+  count: NUM_POINTS,
+
+  primitive: 'points'
 })
 
 function run (res) {
@@ -149,6 +213,7 @@ function run (res) {
       depth: 1
     })
     skybox({texture:res.skybox})
+    starfield()
   })
 }
 
