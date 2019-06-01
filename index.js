@@ -11,6 +11,8 @@ quat.setAxes(
   vec3.fromValues(0,0,1),
   vec3.fromValues(1,0,0),
   vec3.fromValues(0,1,0))
+var pos = vec3.fromValues(0, 0, 0)
+var camera = mat4.create()
 
 var positions = [
   // top
@@ -100,10 +102,12 @@ var skybox = regl({
 
   uniforms: {
     view: function (info) {
-      var view = mat4.create()
       var out = quat.create()
       quat.invert(out, look)
-      return mat4.fromQuat(view, out)
+      var res = mat4.create()
+      mat4.fromQuat(res, out)
+      mat4.translate(res, res, pos)
+      return res
     },
     projection: function (info) {
       return mat4.perspective([],
@@ -120,10 +124,10 @@ function run (res) {
   regl.frame(function () {
     // input
     if (keydown('W')) {
-      quat.rotateX(look, look, +0.005)
+      quat.rotateX(look, look, +0.01)
     }
     if (keydown('S')) {
-      quat.rotateX(look, look, -0.005)
+      quat.rotateX(look, look, -0.01)
     }
     if (keydown('D')) {
       quat.rotateZ(look, look, -0.01)
@@ -131,6 +135,13 @@ function run (res) {
     if (keydown('A')) {
       quat.rotateZ(look, look, +0.01)
     }
+
+    // move camera forward
+    var delta = vec3.create()
+    var forward = vec3.fromValues(0, 0, 0.001)
+    vec3.transformQuat(delta, forward, look)
+    vec3.add(pos, pos, delta)
+    mat4.fromTranslation(camera, pos)
 
     // draw
     regl.clear({
