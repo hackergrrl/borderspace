@@ -4,6 +4,9 @@ var mat4 = require('gl-mat4')
 var quat = require('gl-quat')
 var vec3 = require('gl-vec3')
 var keydown = require('key-pressed')
+var Voxel = require('./voxel')
+
+var atlas = {}
 
 var look = quat.create()
 quat.setAxes(
@@ -112,8 +115,8 @@ var skybox = regl({
       return mat4.perspective([],
                               Math.PI / 4,
                               info.viewportWidth / info.viewportHeight,
-                              0.01,
-                              1000)
+                              1,
+                              800)
     },
     tex: regl.prop('texture')
   }
@@ -158,7 +161,6 @@ var starfield = regl({
   }`,
 
   attributes: {
-    // position: new Array(NUM_POINTS).fill(0).map((_,n) => [0.0, 0, -1])
     position: regl.prop('positions')
   },
 
@@ -194,7 +196,32 @@ var starfield = regl({
 })
 
 function run (res) {
-  regl.frame(function () {
+  var map = new Voxel(regl, 10, 10, 10, atlas, 16, 16)
+  map.defineTile('block1', [0, 2], [0, 1], [0, 1])
+  for (var i=0; i < map.width; i++) {
+    for (var j=0; j < map.depth; j++) {
+      for (var k=0; k < map.height; k++) {
+        if (Math.random() < 0.5) map.set(i, k, j, 'block1'); else map.set(i, k, j, null)
+        // if (i === 0 || i === map.width-1 || j === 0 || j === map.depth-1 || k === 0 || k === map.height-1) {
+        //   map.set(i, k, j, 'block1')
+        // } else {
+        //   map.set(i, k, j, null)
+        // }
+      }
+    }
+  }
+  map.generateGeometry()
+  for (var i=0; i < map.width; i++) {
+    for (var j=0; j < map.depth; j++) {
+      for (var k=0; k < map.height; k++) {
+        map.lightBoxSet(i, k, j, function (pos, normal) {
+          return [0.8, 0.8, 0.8]
+        })
+      }
+    }
+  }
+
+  regl.frame(function (info) {
     // input
     if (keydown('W')) {
       quat.rotateX(look, look, +0.01)
@@ -212,6 +239,7 @@ function run (res) {
     // move camera forward
     var delta = vec3.create()
     var forward = vec3.fromValues(0, 0, keydown('<space>') ? -0.02 : -0.002)
+    // forward[2] = 0
     vec3.transformQuat(delta, forward, look)
     vec3.add(campos, campos, delta)
     mat4.fromTranslation(camera, [-campos[0], -campos[1], -campos[2]])
@@ -241,6 +269,22 @@ function run (res) {
     })
     skybox({texture:res.skybox})
     starfield({positions: stars})
+
+    var out = quat.create()
+    quat.invert(out, look)
+    var view = mat4.create()
+    mat4.fromQuat(view, out)
+    mat4.multiply(view, view, camera)
+
+    map.draw({
+      projection: mat4.perspective([],
+                                Math.PI / 4,
+                                info.viewportWidth / info.viewportHeight,
+                                0.01,
+                                1000),
+
+      view: view
+    })
   })
 }
 
@@ -255,6 +299,23 @@ resl({
           mag: 'linear',
           min: 'linear'
         })
+      }
+    },
+    tileAtlas: {
+      type: 'image',
+      src: 'atlas.png',
+      parser: function (data) {
+        var tex = regl.texture({
+          data: data,
+          min: 'nearest',
+          mag: 'nearest'
+        })
+        atlas = {
+          width: data.width,
+          height: data.height,
+          data: tex
+        }
+        return tex
       }
     }
   },
