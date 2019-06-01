@@ -11,7 +11,7 @@ quat.setAxes(
   vec3.fromValues(0,0,1),
   vec3.fromValues(1,0,0),
   vec3.fromValues(0,1,0))
-var pos = vec3.fromValues(0, 0, 0)
+var campos = vec3.fromValues(0, 0, 0)
 var camera = mat4.create()
 
 var positions = [
@@ -127,7 +127,14 @@ function randsphere (size) {
   return [rand(-size,size), rand(-size,size), rand(-size,size)]
 }
 
-var NUM_POINTS = 10000
+function distance3 (a, b) {
+  var tmp = vec3.create()
+  vec3.subtract(tmp, b, a)
+  return vec3.length(tmp)
+}
+
+var NUM_POINTS = 1000
+var stars = new Array(NUM_POINTS).fill(0).map((_, i) => randsphere(2.5))
 var starfield = regl({
   vert: `
   precision mediump float;
@@ -148,9 +155,8 @@ var starfield = regl({
   }`,
 
   attributes: {
-    position: [
-      new Array(NUM_POINTS).fill(0).map((_, i) => randsphere(8))
-    ]
+    // position: new Array(NUM_POINTS).fill(0).map((_,n) => [0.0, 0, -1])
+    position: regl.prop('positions')
   },
 
   blend: {
@@ -167,7 +173,7 @@ var starfield = regl({
       quat.invert(out, look)
       var res = mat4.create()
       mat4.fromQuat(res, out)
-      mat4.translate(res, res, pos)
+      mat4.multiply(res, res, camera)
       return res
     },
     projection: function (info) {
@@ -204,8 +210,26 @@ function run (res) {
     var delta = vec3.create()
     var forward = vec3.fromValues(0, 0, 0.001)
     vec3.transformQuat(delta, forward, look)
-    vec3.add(pos, pos, delta)
-    mat4.fromTranslation(camera, pos)
+    vec3.add(campos, campos, delta)
+    mat4.fromTranslation(camera, [-campos[0], -campos[1], -campos[2]])
+
+    // move distant stars back into area around camera
+    var pushAhead = vec3.create()
+    vec3.scale(pushAhead, delta, 5.0)
+    stars = stars.map(function (star) {
+      var pos = vec3.fromValues(star[0], star[1], star[2])
+      if (distance3(campos, pos) > 2.5) {
+        // assign it a new place on the edge of the unit-sized sphere around the camera
+        pos = vec3.fromValues(rand(-10,10), rand(-10,10), rand(-10,10))
+        vec3.normalize(pos, pos)
+        vec3.scale(pos, pos, 2)
+        vec3.add(pos, pos, campos)
+        vec3.add(pos, pos, pushAhead)
+        return pos
+      } else {
+        return star
+      }
+    })
 
     // draw
     regl.clear({
@@ -213,7 +237,7 @@ function run (res) {
       depth: 1
     })
     skybox({texture:res.skybox})
-    starfield()
+    starfield({positions: stars})
   })
 }
 
