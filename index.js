@@ -1,6 +1,16 @@
 var regl = require('regl')()
 var resl = require('resl')
 var mat4 = require('gl-mat4')
+var quat = require('gl-quat')
+var vec3 = require('gl-vec3')
+var keydown = require('key-pressed')
+
+var look = quat.create()
+quat.setAxes(
+  look,
+  vec3.fromValues(0,0,1),
+  vec3.fromValues(1,0,0),
+  vec3.fromValues(0,1,0))
 
 var positions = [
   // top
@@ -88,16 +98,12 @@ var skybox = regl({
     uv: uv
   },
 
-  // blend: {
-  //   enable: true,
-  //   func: { src: 'src alpha', dst: 'one minus src alpha' }
-  // },
-
   uniforms: {
     view: function (info) {
-      const t = info.tick * 0.01
-      // return mat4.lookAt([], [0, 0, 0], [1, -1, 1], [0, 1, 0])
-      return mat4.lookAt([], [0, 0, 0], [Math.cos(t), Math.cos(-t), Math.sin(t)], [0, 1, 0])
+      var view = mat4.create()
+      var out = quat.create()
+      quat.invert(out, look)
+      return mat4.fromQuat(view, out)
     },
     projection: function (info) {
       return mat4.perspective([],
@@ -112,6 +118,21 @@ var skybox = regl({
 
 function run (res) {
   regl.frame(function () {
+    // input
+    if (keydown('W')) {
+      quat.rotateX(look, look, +0.005)
+    }
+    if (keydown('S')) {
+      quat.rotateX(look, look, -0.005)
+    }
+    if (keydown('D')) {
+      quat.rotateZ(look, look, -0.01)
+    }
+    if (keydown('A')) {
+      quat.rotateZ(look, look, +0.01)
+    }
+
+    // draw
     regl.clear({
       color: [0.1, 0, 0.1, 1],
       depth: 1
